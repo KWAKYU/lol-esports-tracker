@@ -1,12 +1,14 @@
-# 🏆 LoL Esports 2026 — Season Tracker
+# 🏆 LoL Esports Season Tracker
 
-**Live site → https://kwakyu.github.io/lol-esports-tracker/**
+**Live site → https://kwakyu.github.io/lol-esports-season-tracker/** · Mirror: https://lol-esports-season-tracker.netlify.app
 
-League of Legends e스포츠 2026 시즌을 한 페이지로 따라가는 트래커입니다.
+League of Legends e스포츠 시즌 전체를 한 페이지로 따라가는 트래커입니다.
 백엔드 없이 **HTML 파일 하나**로 동작하며, 라이엇의 일정 발표에 맞춰 스스로 갱신됩니다.
 
-An auto-updating League of Legends esports tracker for the 2026 season.
+An auto-updating League of Legends esports season tracker.
 A **single HTML file** — no backend, no build step. Open it and it keeps itself up to date.
+
+![LoL Esports Season Tracker screenshot](docs/screenshot.png)
 
 ---
 
@@ -39,7 +41,7 @@ A **single HTML file** — no backend, no build step. Open it and it keeps itsel
 
 ## 🚀 사용법 / Usage
 
-그냥 접속하면 됩니다: **https://kwakyu.github.io/lol-esports-tracker/**
+그냥 접속하면 됩니다: **https://kwakyu.github.io/lol-esports-season-tracker/**
 
 로컬에서 쓰려면 `index.html`을 내려받아 브라우저로 열면 끝입니다. 설치·빌드 과정이 없습니다.
 
@@ -60,3 +62,15 @@ To run locally, download `index.html` and open it in any browser. No install, no
 Riot Games와 무관한 **비공식 팬 프로젝트**입니다. 비공식 API를 사용하므로 라이엇 측 변경 시 동작이 멈출 수 있습니다.
 
 Unofficial fan project, not affiliated with or endorsed by Riot Games. Uses an unofficial API that may change without notice.
+
+## 🤝 기여 / Contributing
+
+이슈와 PR 환영합니다! 일정·순위 오류 제보, 번역 개선, 새 기능 제안 모두 좋아요.
+처음이라면 [`good first issue`](https://github.com/KWAKYU/lol-esports-season-tracker/labels/good%20first%20issue) 라벨이 붙은 이슈부터 보세요.
+
+Issues and PRs welcome — bug reports on schedules/standings, translation fixes, and feature ideas.
+Check the [`good first issue`](https://github.com/KWAKYU/lol-esports-season-tracker/labels/good%20first%20issue) label to get started.
+
+## 📄 License
+
+[MIT](LICENSE)
