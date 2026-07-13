@@ -203,6 +203,9 @@
   .brow.win .bnm{color:#fff}
   .brow.win .bsc{color:var(--gold)}
   .brow.lose{opacity:.5}
+  .bn-t{display:flex;align-items:center;gap:5px;height:20px;padding:0 9px;border-top:1px solid var(--line);font-size:9.5px;font-weight:600;color:var(--muted2);white-space:nowrap;overflow:hidden;box-sizing:border-box}
+  .bn-t.up{color:#8fb0ff}
+  .bn-t.lv{color:#ff6376}
   .champ{position:absolute;display:flex;flex-direction:column;align-items:center;gap:8px;z-index:2}
   .champ .cbox{display:flex;align-items:center;gap:10px;width:204px;box-sizing:border-box;padding:12px 14px;border-radius:10px;background:linear-gradient(135deg,rgba(240,180,41,.16),rgba(39,208,122,.12));border:1px solid var(--gold);color:#fff;font-weight:800;font-size:14px;white-space:nowrap;overflow:hidden}
   .champ .ctrophy{font-size:38px;filter:drop-shadow(0 4px 10px rgba(240,180,41,.4))}
@@ -396,7 +399,7 @@ const UI={
     whatIs:name=>'❓ '+name+' — 어떤 대회예요?',
     who:'👥 누가', format:'🎮 방식', stakes:'🎯 걸린 것', gloss:'용어',
     list:'📋 리스트', bracket:'🗺️ 브래킷',
-    playingNow:'경기 중', ended:'종료', finished:'✅ 종료', liveBadge:'🔴 지금 라이브', notPlayed:'⏳ 아직 시작 전',
+    playingNow:'경기 중', ended:'종료', finished:'✅ 종료', liveBadge:'🔴 지금 라이브', notPlayed:'⏳ 아직 시작 전', schedTBD:'일정 미정',
     boTxt:n=>n+'판제(Bo'+n+') · 먼저 '+Math.ceil(n/2)+'승 하는 팀이 승리',
     details:'자세히', match:'경기', matches:'경기', live_:'라이브',
     phase2t:'플레이오프',
@@ -432,7 +435,7 @@ const UI={
     whatIs:name=>'❓ What is '+name+'?',
     who:'👥 Who', format:'🎮 Format', stakes:'🎯 At stake', gloss:'Terms',
     list:'📋 List', bracket:'🗺️ Bracket',
-    playingNow:'Playing now', ended:'ENDED', finished:'✅ Finished', liveBadge:'🔴 Live now', notPlayed:'⏳ Not played yet',
+    playingNow:'Playing now', ended:'ENDED', finished:'✅ Finished', liveBadge:'🔴 Live now', notPlayed:'⏳ Not played yet', schedTBD:'Time TBD',
     boTxt:n=>'Best-of-'+n+' · first to '+Math.ceil(n/2)+' wins',
     details:'details', match:'match', matches:'matches', live_:'live',
     phase2t:'Playoffs',
@@ -588,6 +591,7 @@ let MODAL_MAP={};
 let PAIR_MEANINGS={};
 let autoOn=true;
 let autoTimer=null;
+let BRACKET_SLUG=null;
 let renderToken=0;
 const TOURNEY_CACHE={};
 const BRACKET_CACHE={};
@@ -730,7 +734,7 @@ function eventsFor(stageKey){
 
 /* ---------- bracket graph ---------- */
 const bracketAllowed=k=>['fs','rtm','msi','worlds'].includes(k);
-const B={NW:204,COLW:230,NH:78,SLOT:112,PAD:14};
+const B={NW:204,COLW:230,NH:98,SLOT:132,PAD:14};
 
 async function currentTournamentId(lgId, opt){
   opt=opt||{};
@@ -816,8 +820,33 @@ function layoutGraph(g){
   g.winnerConsumed=sid=>g.edges.some(e=>e.from===sid && e.slot===1);
   return g;
 }
+/* Match a bracket node to its schedule event (which carries the start time). */
+function findScheduleEvent(slug, node){
+  const codes=node.teams.map(t=>t.code).filter(Boolean);
+  if(codes.length<2||!slug) return null;
+  const key=codes.slice().sort().join('|');
+  const cands=DATA.events.filter(e=>e.start
+    && e.leagueSlug===slug
+    && e.teams.map(t=>t.code).filter(Boolean).sort().join('|')===key);
+  if(!cands.length) return null;
+  // same pair can meet twice (double-elim) — prefer matching state, then matching score, then nearest in time
+  let pool=cands.filter(e=>e.state===node.state);
+  if(!pool.length) pool=cands;
+  if(node.state==='completed'&&pool.length>1){
+    const w={}; node.teams.forEach(t=>{ if(t.code&&t.wins!=null) w[t.code]=t.wins; });
+    const exact=pool.filter(e=>e.teams.every(t=>w[t.code]==null||t.wins==null||w[t.code]===t.wins));
+    if(exact.length) pool=exact;
+  }
+  const now=Date.now();
+  return pool.slice().sort((a,b)=>Math.abs(+new Date(a.start)-now)-Math.abs(+new Date(b.start)-now))[0];
+}
+function fmtTimeShort(iso){
+  return new Date(iso).toLocaleString(LANG==='ko'?'ko-KR':undefined,
+    {month:'numeric',day:'numeric',weekday:'short',hour:'2-digit',minute:'2-digit'});
+}
 function bNodeHTML(n,g){
-  MODAL_MAP['b_'+n.sid]=()=>nodeModalHTML(n,g);
+  const ev=findScheduleEvent(BRACKET_SLUG,n);
+  MODAL_MAP['b_'+n.sid]=()=>nodeModalHTML(n,g,ev);
   const teams=n.teams.slice(0,2); while(teams.length<2) teams.push({name:'TBD'});
   const live=n.state==='inProgress', done=n.state==='completed';
   const rt = n._qual ? '<span class="bn-qual">🎟️ MSI</span>'
@@ -830,7 +859,11 @@ function bNodeHTML(n,g){
     let cls='brow'; if(done&&t.outcome==='win')cls+=' win'; if(done&&t.outcome==='loss')cls+=' lose';
     return '<div class="'+cls+'">'+img+(t.seed?'<span class="bseed">'+t.seed+'</span>':'')+'<span class="bnm">'+esc(t.name||'TBD')+'</span><span class="bsc">'+(show?t.wins:'·')+'</span></div>';
   }).join('');
-  return '<div class="bnode'+(live?' live':'')+(n._qual?' qualified':'')+'" style="left:'+n.x+'px;top:'+n.y+'px;width:'+B.NW+'px" onclick="openMatchModal(\'b_'+n.sid+'\')">'+head+rows+'</div>';
+  let foot;
+  if(live) foot='<div class="bn-t lv">🔴 '+T().playingNow+(ev?' · '+fmtTimeShort(ev.start):'')+'</div>';
+  else if(done) foot='<div class="bn-t">🏁 '+(ev?fmtTimeShort(ev.start):T().ended)+'</div>';
+  else foot='<div class="bn-t up">🕑 '+(ev?fmtTimeShort(ev.start)+' · '+relTime(ev.start):T().schedTBD)+'</div>';
+  return '<div class="bnode'+(live?' live':'')+(n._qual?' qualified':'')+'" style="left:'+n.x+'px;top:'+n.y+'px;width:'+B.NW+'px" onclick="openMatchModal(\'b_'+n.sid+'\')">'+head+rows+foot+'</div>';
 }
 function bracketSectionHTML(columns, stageName, sectionName, showChamp, seedCount){
   const g=layoutGraph(buildGraph(columns));
@@ -1125,8 +1158,10 @@ function cardModalHTML(e){
     + '<div class="mm-status">'+status+(bo?' · '+bo:'')+'</div>'
     + '<div class="md-meaning">'+meaning+src+'</div>'+streams;
 }
-function nodeModalHTML(n,g){
-  const status = n.state==='inProgress' ? T().liveBadge : n.state==='completed' ? T().finished : T().notPlayed;
+function nodeModalHTML(n,g,ev){
+  const status = n.state==='inProgress' ? T().liveBadge
+    : n.state==='completed' ? T().finished+(ev?' · '+fmtTime(ev.start):'')
+    : ev ? '⏳ '+fmtTime(ev.start)+' · '+relTime(ev.start) : T().notPlayed;
   const teams=n.teams.length?n.teams.map(t=>modalTeamRow(t,n.state)).join(''):modalTeamRow({name:'TBD'},'unstarted');
   const meaning = g ? bracketMatchMeaning(n,g)+'<div class="md-src">'+T().bracketSrc+'</div>' : matchMeaning(curStage, n.cell);
   return '<div class="mm-title">'+esc(n.cell||'Match')+'</div>'
@@ -1160,13 +1195,13 @@ async function renderBracketView(preserve){
   renderRoadmap(); syncRegionBar();
 
   let tids=[], hint='', seedCount=0, regionSlug=null;
-  if(curStage==='msi')   tids=[await currentTournamentId(leagueId('msi'),{year:SEASON_YEAR})];
-  else if(curStage==='worlds') tids=[await currentTournamentId(leagueId('worlds'),{year:SEASON_YEAR})];
-  else if(curStage==='fs')     tids=[await currentTournamentId(leagueId('first_stand'),{year:SEASON_YEAR})];
+  if(curStage==='msi'){ BRACKET_SLUG='msi'; tids=[await currentTournamentId(leagueId('msi'),{year:SEASON_YEAR})]; }
+  else if(curStage==='worlds'){ BRACKET_SLUG='worlds'; tids=[await currentTournamentId(leagueId('worlds'),{year:SEASON_YEAR})]; }
+  else if(curStage==='fs'){ BRACKET_SLUG='first_stand'; tids=[await currentTournamentId(leagueId('first_stand'),{year:SEASON_YEAR})]; }
   else if(curStage==='rtm'){
     let slug=curRegion;
     if(slug==='all'){ slug='lck'; hint=T().allHint; }
-    seedCount=MSI_SLOTS[slug]||2; regionSlug=slug;
+    seedCount=MSI_SLOTS[slug]||2; regionSlug=slug; BRACKET_SLUG=slug;
     tids=[await currentTournamentId(leagueId(slug))];
   }
   tids=tids.filter(Boolean);
